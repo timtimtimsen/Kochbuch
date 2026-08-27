@@ -349,7 +349,8 @@ async function loadRecipes(){
                 const blob = await imgResp.blob();
                 recipe.bildUrl = URL.createObjectURL(blob);
               } else {
-                recipe.bildFehler = 'Bild-Download HTTP ' + imgResp.status;
+                const bodyText = await imgResp.text().catch(()=> '');
+                recipe.bildFehler = `Bild-Download HTTP ${imgResp.status}${bodyText ? ' – ' + bodyText.slice(0,200) : ''}`;
               }
             } catch(imgErr){
               recipe.bildFehler = 'Bild-Fehler: ' + imgErr.message;
