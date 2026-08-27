@@ -263,6 +263,11 @@ const CONFIG = {
   // Der Code aus deinem pCloud Public-Link für den "Rezepte"-Ordner
   pcloudCode: 'kZxucy7ZEY07ALjusDRhCXNW3kzhJJylPMay',
 
+  // pCloud hat zwei Rechenzentren: 'api.pcloud.com' (USA) oder
+  // 'eapi.pcloud.com' (Europa). Dein Public-Link beginnt mit "e.pcloud.link",
+  // daher hier auf das europäische Rechenzentrum eingestellt.
+  apiHost: 'eapi.pcloud.com',
+
   // WICHTIG: Ändere dieses Passwort, bevor du die Datei hochlädst!
   // Dies ist KEIN echter Schutz (siehe Erklärung im Chat), nur eine
   // einfache Zugangshürde gegen zufällige Besucher.
@@ -304,7 +309,7 @@ async function loadRecipes(){
   status.textContent = 'Lade Rezepte aus pCloud ...';
 
   try {
-    const listResp = await fetch(`https://api.pcloud.com/showpublink?code=${CONFIG.pcloudCode}`);
+    const listResp = await fetch(`https://${CONFIG.apiHost}/showpublink?code=${CONFIG.pcloudCode}`);
     const listData = await listResp.json();
     if (listData.result !== 0) throw new Error('pCloud-Antwort: ' + (listData.error || listData.result));
 
@@ -315,7 +320,7 @@ async function loadRecipes(){
     const recipes = [];
     for (const file of textFiles){
       try {
-        const dlResp = await fetch(`https://api.pcloud.com/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${file.fileid}`);
+        const dlResp = await fetch(`https://${CONFIG.apiHost}/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${file.fileid}`);
         const dlData = await dlResp.json();
         if (dlData.result !== 0) continue;
         const fileUrl = 'https://' + dlData.hosts[0] + dlData.path;
@@ -326,7 +331,7 @@ async function loadRecipes(){
         if (recipe.bild){
           const imgFile = imageFiles.find(f => f.name.toLowerCase() === recipe.bild.toLowerCase());
           if (imgFile){
-            const imgDlResp = await fetch(`https://api.pcloud.com/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${imgFile.fileid}`);
+            const imgDlResp = await fetch(`https://${CONFIG.apiHost}/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${imgFile.fileid}`);
             const imgDlData = await imgDlResp.json();
             if (imgDlData.result === 0){
               recipe.bildUrl = 'https://' + imgDlData.hosts[0] + imgDlData.path;
