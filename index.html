@@ -123,6 +123,8 @@
     border-color:var(--ink);
   }
   .chip.tagchip.active{background:var(--mustard);border-color:var(--mustard);color:#fff;}
+  .chip.ratingchip{color:var(--mustard);border-color:#E8D9AE;}
+  .chip.ratingchip.active{background:var(--mustard);border-color:var(--mustard);color:#fff;}
 
   main{max-width:960px;margin:0 auto;padding:22px 20px 60px;}
   #status{color:var(--ink-soft);font-size:0.9rem;padding:20px 0;}
@@ -225,7 +227,7 @@
   <header class="top">
     <div class="row1">
       <h1>🍲 Mein <span>Kochbuch</span></h1>
-      <span style="font-size:0.7rem;color:var(--ink-soft);opacity:0.6;">v1.6</span>
+      <span style="font-size:0.7rem;color:var(--ink-soft);opacity:0.6;">v1.7</span>
     </div>
     <div id="search">
       <input type="text" id="searchInput" placeholder="Suche nach Titel oder Zutat, z.B. Quinoa...">
@@ -247,6 +249,7 @@
     <div class="content">
       <h2 id="detailTitel"></h2>
       <div class="meta" id="detailMeta"></div>
+      <div id="detailRating" style="color:var(--mustard);font-size:1.1rem;margin-bottom:10px;display:none;"></div>
       <div class="tags" id="detailTags"></div>
       <h4>Zutaten</h4>
       <div class="zutaten" id="detailZutaten"></div>
@@ -282,6 +285,11 @@ const CONFIG = {
 let ALL_RECIPES = [];
 let activeKueche = null;
 let activeTag = null;
+let activeMinRating = 0;
+
+function starString(n){
+  return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
 
 // ---------- Proxy-Hilfsfunktion ----------
 function viaProxy(url){
@@ -383,7 +391,7 @@ function parseRecipe(raw, filename){
   const body = lines.slice(sepIdx + 1).join('\n').trim();
 
   const data = {
-    filename, titel:'', kueche:'', zutaten:'', zeit:'', tags:[], bild:'', body
+    filename, titel:'', kueche:'', zutaten:'', zeit:'', tags:[], bild:'', bewertung:0, body
   };
 
   for (const line of headerLines){
@@ -397,6 +405,10 @@ function parseRecipe(raw, filename){
     else if (key.startsWith('zubereitungszeit') || key.startsWith('zeit')) data.zeit = value;
     else if (key.startsWith('tags')) data.tags = value.split(',').map(t=>t.trim().replace(/^#/,'')).filter(Boolean);
     else if (key.startsWith('bild')) data.bild = value;
+    else if (key.startsWith('bewertung') || key.startsWith('sterne')){
+      const n = parseInt(value, 10);
+      data.bewertung = (n >= 1 && n <= 5) ? n : 0;
+    }
   }
   if (!data.titel) data.titel = filename.replace(/\.(txt|md)$/i,'');
   return data;
@@ -409,6 +421,19 @@ function buildFilters(){
 
   const wrap = document.getElementById('filters');
   wrap.innerHTML = '';
+
+  [5,4,3,2,1].forEach(n=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip ratingchip';
+    chip.textContent = 'ab ' + starString(n).slice(0,n);
+    chip.onclick = ()=>{
+      activeMinRating = (activeMinRating === n) ? 0 : n;
+      renderGrid();
+      buildFilters();
+    };
+    if (activeMinRating === n) chip.classList.add('active');
+    wrap.appendChild(chip);
+  });
 
   kuechen.forEach(k=>{
     const chip = document.createElement('div');
@@ -445,6 +470,7 @@ function getFiltered(){
   return ALL_RECIPES.filter(r=>{
     if (activeKueche && r.kueche !== activeKueche) return false;
     if (activeTag && !r.tags.includes(activeTag)) return false;
+    if (activeMinRating && r.bewertung < activeMinRating) return false;
     if (q){
       const haystack = (r.titel + ' ' + r.zutaten + ' ' + r.kueche).toLowerCase();
       if (!haystack.includes(q)) return false;
@@ -474,6 +500,7 @@ function renderGrid(){
       <div class="body">
         <h3>${escapeHtml(r.titel)}</h3>
         <div class="meta">${escapeHtml(r.kueche || '')}${r.zeit ? ' · ' + escapeHtml(r.zeit) : ''}</div>
+        ${r.bewertung ? `<div class="meta" style="color:var(--mustard);">${starString(r.bewertung)}</div>` : ''}
         <div class="tags">${r.tags.map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div>
       </div>`;
 
@@ -499,6 +526,13 @@ function renderGrid(){
 function openDetail(r){
   document.getElementById('detailTitel').textContent = r.titel;
   document.getElementById('detailMeta').textContent = [r.kueche, r.zeit].filter(Boolean).join(' · ');
+  const ratingEl = document.getElementById('detailRating');
+  if (r.bewertung){
+    ratingEl.textContent = starString(r.bewertung);
+    ratingEl.style.display = 'block';
+  } else {
+    ratingEl.style.display = 'none';
+  }
   document.getElementById('detailTags').innerHTML = r.tags.map(t=>`<span>#${escapeHtml(t)}</span>`).join('');
   document.getElementById('detailZutaten').textContent = r.zutaten;
   document.getElementById('detailZubereitung').textContent = r.body;
