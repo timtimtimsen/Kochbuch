@@ -318,13 +318,15 @@ async function loadRecipes(){
     const imageFiles = contents.filter(f => !f.isfolder && /\.(jpe?g|jpg|png|webp|gif)$/i.test(f.name));
 
     const recipes = [];
+    const loadErrors = [];
     for (const file of textFiles){
       try {
         const dlResp = await fetch(`https://${CONFIG.apiHost}/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${file.fileid}`);
         const dlData = await dlResp.json();
-        if (dlData.result !== 0) continue;
+        if (dlData.result !== 0) throw new Error('getpublinkdownload Fehler: ' + dlData.result);
         const fileUrl = 'https://' + dlData.hosts[0] + dlData.path;
         const textResp = await fetch(fileUrl);
+        if (!textResp.ok) throw new Error('Datei-Download HTTP ' + textResp.status);
         const text = await textResp.text();
         const recipe = parseRecipe(text, file.name);
 
@@ -341,12 +343,15 @@ async function loadRecipes(){
         recipes.push(recipe);
       } catch(innerErr){
         console.error('Konnte Rezept nicht laden:', file.name, innerErr);
+        loadErrors.push(file.name + ': ' + innerErr.message);
       }
     }
 
     ALL_RECIPES = recipes;
-    if (recipes.length === 0){
-      status.textContent = 'Es wurden keine Rezepte gefunden. Liegt schon eine Rezept-Datei (.txt) im pCloud-Ordner?';
+    if (recipes.length === 0 && textFiles.length === 0){
+      status.textContent = 'Es wurden keine Rezepte gefunden. Liegt schon eine Rezept-Datei (.txt) direkt (nicht in einem Unterordner) im freigegebenen pCloud-Ordner?';
+    } else if (recipes.length === 0 && loadErrors.length > 0){
+      status.innerHTML = `${textFiles.length} Rezept-Datei(en) gefunden, aber keine konnte geladen werden.<br><small>${loadErrors.map(escapeHtml).join('<br>')}</small>`;
     } else {
       status.textContent = '';
     }
