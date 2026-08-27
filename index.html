@@ -274,7 +274,7 @@ const CONFIG = {
   // WICHTIG: Ändere dieses Passwort, bevor du die Datei hochlädst!
   // Dies ist KEIN echter Schutz (siehe Erklärung im Chat), nur eine
   // einfache Zugangshürde gegen zufällige Besucher.
-  password: 'GibSnacks'
+  password: 'REZEPTE2026'
 };
 /* ========================================================= */
 
@@ -343,16 +343,26 @@ async function loadRecipes(){
         if (recipe.bild){
           const imgFile = imageFiles.find(f => f.name.toLowerCase() === recipe.bild.toLowerCase());
           if (imgFile){
-            const imgDlResp = await fetch(viaProxy(`https://${CONFIG.apiHost}/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${imgFile.fileid}`));
-            const imgDlData = await imgDlResp.json();
-            if (imgDlData.result === 0){
-              const imgContentUrl = 'https://' + imgDlData.hosts[0] + imgDlData.path;
-              const imgResp = await fetch(viaProxy(imgContentUrl));
-              if (imgResp.ok){
-                const blob = await imgResp.blob();
-                recipe.bildUrl = URL.createObjectURL(blob);
+            try {
+              const imgDlResp = await fetch(viaProxy(`https://${CONFIG.apiHost}/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${imgFile.fileid}`));
+              const imgDlData = await imgDlResp.json();
+              if (imgDlData.result === 0){
+                const imgContentUrl = 'https://' + imgDlData.hosts[0] + imgDlData.path;
+                const imgResp = await fetch(viaProxy(imgContentUrl));
+                if (imgResp.ok){
+                  const blob = await imgResp.blob();
+                  recipe.bildUrl = URL.createObjectURL(blob);
+                } else {
+                  recipe.bildFehler = 'Bild-Download HTTP ' + imgResp.status;
+                }
+              } else {
+                recipe.bildFehler = 'getpublinkdownload Fehler (Bild): ' + imgDlData.result;
               }
+            } catch(imgErr){
+              recipe.bildFehler = 'Bild-Fehler: ' + imgErr.message;
             }
+          } else {
+            recipe.bildFehler = `Bilddatei "${recipe.bild}" nicht im Ordner gefunden (vorhanden: ${imageFiles.map(f=>f.name).join(', ') || 'keine Bilder'})`;
           }
         }
         recipes.push(recipe);
@@ -483,6 +493,7 @@ function renderGrid(){
       <div class="body">
         <h3>${escapeHtml(r.titel)}</h3>
         <div class="meta">${escapeHtml(r.kueche || '')}${r.zeit ? ' · ' + escapeHtml(r.zeit) : ''}</div>
+        ${r.bildFehler ? `<div style="font-size:0.72rem;color:var(--brick);margin-bottom:6px;">⚠ ${escapeHtml(r.bildFehler)}</div>` : ''}
         <div class="tags">${r.tags.map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div>
       </div>`;
 
