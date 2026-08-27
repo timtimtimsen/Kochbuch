@@ -103,9 +103,20 @@
     font-family:inherit;
     background:var(--card);
   }
-  #filters{
-    max-width:960px;margin:12px auto 0;
+  #dropdownFilters, #tagFilters{
+    max-width:960px;margin:0 auto;
     display:flex;flex-wrap:wrap;gap:8px;
+  }
+  #tagFilters{margin-top:10px;}
+  select.dropdown{
+    padding:8px 12px;
+    border-radius:9px;
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:0.85rem;
+    cursor:pointer;
   }
   .chip{
     padding:6px 13px;
@@ -227,12 +238,15 @@
   <header class="top">
     <div class="row1">
       <h1>🍲 Mein <span>Kochbuch</span></h1>
-      <span style="font-size:0.7rem;color:var(--ink-soft);opacity:0.6;">v1.7</span>
+      <span style="font-size:0.7rem;color:var(--ink-soft);opacity:0.6;">v1.8</span>
     </div>
     <div id="search">
       <input type="text" id="searchInput" placeholder="Suche nach Titel oder Zutat, z.B. Quinoa...">
     </div>
-    <div id="filters"></div>
+    <div id="filters">
+      <div id="dropdownFilters"></div>
+      <div id="tagFilters"></div>
+    </div>
   </header>
 
   <main>
@@ -249,7 +263,8 @@
     <div class="content">
       <h2 id="detailTitel"></h2>
       <div class="meta" id="detailMeta"></div>
-      <div id="detailRating" style="color:var(--mustard);font-size:1.1rem;margin-bottom:10px;display:none;"></div>
+      <div id="detailRating" style="color:var(--mustard);font-size:1.1rem;margin-bottom:4px;display:none;"></div>
+      <div id="detailGesund" style="font-size:1.1rem;margin-bottom:10px;display:none;"></div>
       <div class="tags" id="detailTags"></div>
       <h4>Zutaten</h4>
       <div class="zutaten" id="detailZutaten"></div>
@@ -284,11 +299,16 @@ const CONFIG = {
 
 let ALL_RECIPES = [];
 let activeKueche = null;
+let activeZeit = null;
 let activeTag = null;
 let activeMinRating = 0;
+let activeMinGesund = 0;
 
 function starString(n){
   return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
+function gesundString(n){
+  return '🥑'.repeat(n);
 }
 
 // ---------- Proxy-Hilfsfunktion ----------
@@ -391,7 +411,7 @@ function parseRecipe(raw, filename){
   const body = lines.slice(sepIdx + 1).join('\n').trim();
 
   const data = {
-    filename, titel:'', kueche:'', zutaten:'', zeit:'', tags:[], bild:'', bewertung:0, body
+    filename, titel:'', kueche:'', zutaten:'', zeit:'', tags:[], bild:'', bewertung:0, gesund:0, body
   };
 
   for (const line of headerLines){
@@ -409,6 +429,10 @@ function parseRecipe(raw, filename){
       const n = parseInt(value, 10);
       data.bewertung = (n >= 1 && n <= 5) ? n : 0;
     }
+    else if (key.startsWith('gesund')){
+      const n = parseInt(value, 10);
+      data.gesund = (n >= 1 && n <= 5) ? n : 0;
+    }
   }
   if (!data.titel) data.titel = filename.replace(/\.(txt|md)$/i,'');
   return data;
@@ -417,37 +441,23 @@ function parseRecipe(raw, filename){
 // ---------- Filter-Chips bauen ----------
 function buildFilters(){
   const kuechen = [...new Set(ALL_RECIPES.map(r=>r.kueche).filter(Boolean))].sort();
+  const zeiten = [...new Set(ALL_RECIPES.map(r=>r.zeit).filter(Boolean))].sort((a,b)=>{
+    const na = parseInt(a,10), nb = parseInt(b,10);
+    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+    return a.localeCompare(b);
+  });
   const tags = [...new Set(ALL_RECIPES.flatMap(r=>r.tags))].sort();
 
-  const wrap = document.getElementById('filters');
-  wrap.innerHTML = '';
+  const dwrap = document.getElementById('dropdownFilters');
+  dwrap.innerHTML = '';
 
-  [5,4,3,2,1].forEach(n=>{
-    const chip = document.createElement('div');
-    chip.className = 'chip ratingchip';
-    chip.textContent = 'ab ' + starString(n).slice(0,n);
-    chip.onclick = ()=>{
-      activeMinRating = (activeMinRating === n) ? 0 : n;
-      renderGrid();
-      buildFilters();
-    };
-    if (activeMinRating === n) chip.classList.add('active');
-    wrap.appendChild(chip);
-  });
+  dwrap.appendChild(makeSelect('Alle Küchen', kuechen, activeKueche, v=>{ activeKueche = v || null; renderGrid(); }));
+  dwrap.appendChild(makeSelect('Alle Zeiten', zeiten, activeZeit, v=>{ activeZeit = v || null; renderGrid(); }));
+  dwrap.appendChild(makeRatingSelect('Alle Bewertungen', '★', activeMinRating, v=>{ activeMinRating = v; renderGrid(); }));
+  dwrap.appendChild(makeRatingSelect('Alle Gesundheitswerte', '🥑', activeMinGesund, v=>{ activeMinGesund = v; renderGrid(); }));
 
-  kuechen.forEach(k=>{
-    const chip = document.createElement('div');
-    chip.className = 'chip kuechechip';
-    chip.textContent = k;
-    chip.onclick = ()=>{
-      activeKueche = (activeKueche === k) ? null : k;
-      renderGrid();
-      buildFilters();
-    };
-    if (activeKueche === k) chip.classList.add('active');
-    wrap.appendChild(chip);
-  });
-
+  const twrap = document.getElementById('tagFilters');
+  twrap.innerHTML = '';
   tags.forEach(t=>{
     const chip = document.createElement('div');
     chip.className = 'chip tagchip';
@@ -458,8 +468,44 @@ function buildFilters(){
       buildFilters();
     };
     if (activeTag === t) chip.classList.add('active');
-    wrap.appendChild(chip);
+    twrap.appendChild(chip);
   });
+}
+
+function makeSelect(placeholder, options, current, onChange){
+  const sel = document.createElement('select');
+  sel.className = 'dropdown';
+  const optAll = document.createElement('option');
+  optAll.value = '';
+  optAll.textContent = placeholder;
+  sel.appendChild(optAll);
+  options.forEach(o=>{
+    const opt = document.createElement('option');
+    opt.value = o;
+    opt.textContent = o;
+    if (current === o) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.onchange = ()=> onChange(sel.value);
+  return sel;
+}
+
+function makeRatingSelect(placeholder, icon, current, onChange){
+  const sel = document.createElement('select');
+  sel.className = 'dropdown';
+  const optAll = document.createElement('option');
+  optAll.value = '0';
+  optAll.textContent = placeholder;
+  sel.appendChild(optAll);
+  for (let n = 5; n >= 1; n--){
+    const opt = document.createElement('option');
+    opt.value = String(n);
+    opt.textContent = 'ab ' + icon.repeat(n);
+    if (current === n) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  sel.onchange = ()=> onChange(parseInt(sel.value, 10) || 0);
+  return sel;
 }
 
 // ---------- Suche ----------
@@ -469,8 +515,10 @@ function getFiltered(){
   const q = document.getElementById('searchInput').value.trim().toLowerCase();
   return ALL_RECIPES.filter(r=>{
     if (activeKueche && r.kueche !== activeKueche) return false;
+    if (activeZeit && r.zeit !== activeZeit) return false;
     if (activeTag && !r.tags.includes(activeTag)) return false;
     if (activeMinRating && r.bewertung < activeMinRating) return false;
+    if (activeMinGesund && r.gesund < activeMinGesund) return false;
     if (q){
       const haystack = (r.titel + ' ' + r.zutaten + ' ' + r.kueche).toLowerCase();
       if (!haystack.includes(q)) return false;
@@ -501,6 +549,7 @@ function renderGrid(){
         <h3>${escapeHtml(r.titel)}</h3>
         <div class="meta">${escapeHtml(r.kueche || '')}${r.zeit ? ' · ' + escapeHtml(r.zeit) : ''}</div>
         ${r.bewertung ? `<div class="meta" style="color:var(--mustard);">${starString(r.bewertung)}</div>` : ''}
+        ${r.gesund ? `<div class="meta">${gesundString(r.gesund)}</div>` : ''}
         <div class="tags">${r.tags.map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div>
       </div>`;
 
@@ -533,8 +582,19 @@ function openDetail(r){
   } else {
     ratingEl.style.display = 'none';
   }
+  const gesundEl = document.getElementById('detailGesund');
+  if (r.gesund){
+    gesundEl.textContent = gesundString(r.gesund);
+    gesundEl.style.display = 'block';
+  } else {
+    gesundEl.style.display = 'none';
+  }
   document.getElementById('detailTags').innerHTML = r.tags.map(t=>`<span>#${escapeHtml(t)}</span>`).join('');
-  document.getElementById('detailZutaten').textContent = r.zutaten;
+  document.getElementById('detailZutaten').textContent = r.zutaten
+    .split(',')
+    .map(z => z.trim())
+    .filter(Boolean)
+    .join('\n');
   document.getElementById('detailZubereitung').textContent = r.body;
 
   const thumb = document.getElementById('detailThumb');
