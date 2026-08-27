@@ -346,7 +346,12 @@ async function loadRecipes(){
             const imgDlResp = await fetch(viaProxy(`https://${CONFIG.apiHost}/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${imgFile.fileid}`));
             const imgDlData = await imgDlResp.json();
             if (imgDlData.result === 0){
-              recipe.bildUrl = 'https://' + imgDlData.hosts[0] + imgDlData.path;
+              const imgContentUrl = 'https://' + imgDlData.hosts[0] + imgDlData.path;
+              const imgResp = await fetch(viaProxy(imgContentUrl));
+              if (imgResp.ok){
+                const blob = await imgResp.blob();
+                recipe.bildUrl = URL.createObjectURL(blob);
+              }
             }
           }
         }
