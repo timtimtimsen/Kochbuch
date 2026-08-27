@@ -288,6 +288,10 @@ function viaProxy(url){
   const sep = CONFIG.proxy.includes('?') ? '&' : '?';
   return CONFIG.proxy + sep + 'url=' + encodeURIComponent(url);
 }
+// Lässt den Worker Download-Link-Anfrage UND Dateiabruf in einem Rutsch erledigen
+function proxiedDownload(fileid){
+  return `${CONFIG.proxy}?code=${CONFIG.pcloudCode}&fileid=${fileid}&apiHost=${CONFIG.apiHost}`;
+}
 
 // ---------- Passwort-Gate ----------
 function checkPassword(){
@@ -331,11 +335,7 @@ async function loadRecipes(){
     const loadErrors = [];
     for (const file of textFiles){
       try {
-        const dlResp = await fetch(viaProxy(`https://${CONFIG.apiHost}/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${file.fileid}`));
-        const dlData = await dlResp.json();
-        if (dlData.result !== 0) throw new Error('getpublinkdownload Fehler: ' + dlData.result);
-        const fileUrl = 'https://' + dlData.hosts[0] + dlData.path;
-        const textResp = await fetch(viaProxy(fileUrl));
+        const textResp = await fetch(proxiedDownload(file.fileid));
         if (!textResp.ok) throw new Error('Datei-Download HTTP ' + textResp.status);
         const text = await textResp.text();
         const recipe = parseRecipe(text, file.name);
@@ -344,19 +344,12 @@ async function loadRecipes(){
           const imgFile = imageFiles.find(f => f.name.toLowerCase() === recipe.bild.toLowerCase());
           if (imgFile){
             try {
-              const imgDlResp = await fetch(viaProxy(`https://${CONFIG.apiHost}/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${imgFile.fileid}`));
-              const imgDlData = await imgDlResp.json();
-              if (imgDlData.result === 0){
-                const imgContentUrl = 'https://' + imgDlData.hosts[0] + imgDlData.path;
-                const imgResp = await fetch(viaProxy(imgContentUrl));
-                if (imgResp.ok){
-                  const blob = await imgResp.blob();
-                  recipe.bildUrl = URL.createObjectURL(blob);
-                } else {
-                  recipe.bildFehler = 'Bild-Download HTTP ' + imgResp.status;
-                }
+              const imgResp = await fetch(proxiedDownload(imgFile.fileid));
+              if (imgResp.ok){
+                const blob = await imgResp.blob();
+                recipe.bildUrl = URL.createObjectURL(blob);
               } else {
-                recipe.bildFehler = 'getpublinkdownload Fehler (Bild): ' + imgDlData.result;
+                recipe.bildFehler = 'Bild-Download HTTP ' + imgResp.status;
               }
             } catch(imgErr){
               recipe.bildFehler = 'Bild-Fehler: ' + imgErr.message;
