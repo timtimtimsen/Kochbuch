@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Mein Kochbuch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F1E4;
+    --ink:#33402C;
+    --ink-soft:#5B6653;
+    --mustard:#CE9A1F;
+    --card:#FFFDF7;
+    --line:#DCD4BD;
+    --brick:#A8462F;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family:'Fraunces',serif;
+    letter-spacing:-0.01em;
+  }
+
+  /* ---------- Passwort-Gate ---------- */
+  #gate{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  #gate .box{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:36px 32px;
+    max-width:360px;
+    width:100%;
+    text-align:center;
+    box-shadow:0 12px 30px rgba(51,64,44,0.08);
+  }
+  #gate h1{font-size:1.6rem;margin:0 0 6px;}
+  #gate p{color:var(--ink-soft);font-size:0.92rem;margin:0 0 20px;}
+  #gate input{
+    width:100%;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:1rem;
+    font-family:inherit;
+    margin-bottom:12px;
+    background:#fff;
+  }
+  #gate button{
+    width:100%;
+    padding:12px 14px;
+    border:none;
+    border-radius:8px;
+    background:var(--ink);
+    color:var(--paper);
+    font-size:1rem;
+    font-weight:600;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  #gate button:hover{background:var(--brick);}
+  #gate .err{color:var(--brick);font-size:0.85rem;min-height:18px;margin-top:8px;}
+
+  /* ---------- App-Layout ---------- */
+  #app{display:none;}
+  header.top{
+    position:sticky;top:0;z-index:10;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    padding:18px 20px 14px;
+  }
+  header.top .row1{
+    display:flex;align-items:baseline;justify-content:space-between;
+    max-width:960px;margin:0 auto 14px;
+  }
+  header.top h1{font-size:1.5rem;margin:0;color:var(--ink);}
+  header.top h1 span{color:var(--mustard);}
+  #search{
+    max-width:960px;margin:0 auto;
+    display:flex;gap:8px;
+  }
+  #search input{
+    flex:1;
+    padding:11px 14px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    font-size:1rem;
+    font-family:inherit;
+    background:var(--card);
+  }
+  #filters{
+    max-width:960px;margin:12px auto 0;
+    display:flex;flex-wrap:wrap;gap:8px;
+  }
+  .chip{
+    padding:6px 13px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--card);
+    font-size:0.82rem;
+    cursor:pointer;
+    color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .chip.active{
+    background:var(--ink);
+    color:var(--paper);
+    border-color:var(--ink);
+  }
+  .chip.tagchip.active{background:var(--mustard);border-color:var(--mustard);color:#fff;}
+
+  main{max-width:960px;margin:0 auto;padding:22px 20px 60px;}
+  #status{color:var(--ink-soft);font-size:0.9rem;padding:20px 0;}
+
+  #grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+    gap:18px;
+  }
+  .rcard{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+    cursor:pointer;
+    position:relative;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .rcard:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(51,64,44,0.1);}
+  .rcard .punch{
+    position:absolute;top:10px;left:10px;
+    width:12px;height:12px;border-radius:50%;
+    background:var(--paper);
+    border:1px solid var(--line);
+    z-index:2;
+  }
+  .rcard .thumb{
+    width:100%;height:140px;
+    background:linear-gradient(135deg,#EDE6D2,#E1D6B8);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--ink-soft);font-size:0.8rem;
+    overflow:hidden;
+  }
+  .rcard .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .rcard .body{padding:14px 16px 16px;}
+  .rcard h3{margin:0 0 4px;font-size:1.1rem;}
+  .rcard .meta{font-size:0.8rem;color:var(--ink-soft);margin-bottom:8px;}
+  .rcard .tags{display:flex;flex-wrap:wrap;gap:5px;}
+  .rcard .tags span{
+    font-size:0.7rem;background:#EFE7D0;color:var(--ink-soft);
+    padding:2px 8px;border-radius:999px;
+  }
+
+  /* ---------- Detailansicht ---------- */
+  #detail{
+    display:none;
+    position:fixed;inset:0;
+    background:rgba(51,64,44,0.35);
+    z-index:20;
+    padding:24px;
+    overflow-y:auto;
+  }
+  #detail .sheet{
+    background:var(--card);
+    max-width:640px;
+    margin:0 auto;
+    border-radius:14px;
+    overflow:hidden;
+  }
+  #detail .thumb{width:100%;max-height:280px;overflow:hidden;background:#EDE6D2;}
+  #detail .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  #detail .content{padding:26px 28px 32px;}
+  #detail h2{margin:0 0 6px;font-size:1.7rem;}
+  #detail .meta{color:var(--ink-soft);font-size:0.9rem;margin-bottom:14px;}
+  #detail .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;}
+  #detail .tags span{font-size:0.75rem;background:#EFE7D0;color:var(--ink-soft);padding:3px 10px;border-radius:999px;}
+  #detail h4{font-family:'Fraunces',serif;font-size:1rem;margin:18px 0 8px;color:var(--mustard);}
+  #detail .zutaten{white-space:pre-line;line-height:1.6;}
+  #detail .zubereitung{white-space:pre-line;line-height:1.7;}
+  #closeBtn{
+    position:absolute;top:16px;right:16px;
+    background:var(--ink);color:var(--paper);
+    border:none;border-radius:50%;
+    width:34px;height:34px;font-size:1rem;
+    cursor:pointer;
+  }
+  #detail .sheet{position:relative;}
+
+  @media (max-width:520px){
+    header.top{padding:14px 14px 12px;}
+    main{padding:16px 14px 50px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ PASSWORT-GATE ============ -->
+<div id="gate">
+  <div class="box">
+    <h1>🍲 Mein Kochbuch</h1>
+    <p>Bitte Passwort eingeben, um fortzufahren.</p>
+    <input type="password" id="pwInput" placeholder="Passwort" autocomplete="off">
+    <button onclick="checkPassword()">Öffnen</button>
+    <div class="err" id="pwErr"></div>
+  </div>
+</div>
+
+<!-- ============ HAUPT-APP ============ -->
+<div id="app">
+  <header class="top">
+    <div class="row1">
+      <h1>🍲 Mein <span>Kochbuch</span></h1>
+    </div>
+    <div id="search">
+      <input type="text" id="searchInput" placeholder="Suche nach Titel oder Zutat, z.B. Quinoa...">
+    </div>
+    <div id="filters"></div>
+  </header>
+
+  <main>
+    <div id="status"></div>
+    <div id="grid"></div>
+  </main>
+</div>
+
+<!-- ============ DETAILANSICHT ============ -->
+<div id="detail">
+  <div class="sheet">
+    <button id="closeBtn" onclick="closeDetail()">✕</button>
+    <div class="thumb" id="detailThumb" style="display:none;"><img id="detailImg"></div>
+    <div class="content">
+      <h2 id="detailTitel"></h2>
+      <div class="meta" id="detailMeta"></div>
+      <div class="tags" id="detailTags"></div>
+      <h4>Zutaten</h4>
+      <div class="zutaten" id="detailZutaten"></div>
+      <h4>Zubereitung</h4>
+      <div class="zubereitung" id="detailZubereitung"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   KONFIGURATION – hier trägst du deine eigenen Werte ein
+   ========================================================= */
+const CONFIG = {
+  // Der Code aus deinem pCloud Public-Link für den "Rezepte"-Ordner
+  pcloudCode: 'kZxucy7ZEY07ALjusDRhCXNW3kzhJJylPMay',
+
+  // WICHTIG: Ändere dieses Passwort, bevor du die Datei hochlädst!
+  // Dies ist KEIN echter Schutz (siehe Erklärung im Chat), nur eine
+  // einfache Zugangshürde gegen zufällige Besucher.
+  password: 'GibSnacks'
+};
+/* ========================================================= */
+
+let ALL_RECIPES = [];
+let activeKueche = null;
+let activeTag = null;
+
+// ---------- Passwort-Gate ----------
+function checkPassword(){
+  const val = document.getElementById('pwInput').value;
+  if (val === CONFIG.password){
+    sessionStorage.setItem('kochbuch_unlocked', '1');
+    showApp();
+  } else {
+    document.getElementById('pwErr').textContent = 'Falsches Passwort.';
+  }
+}
+document.getElementById('pwInput').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') checkPassword();
+});
+
+function showApp(){
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadRecipes();
+}
+
+if (sessionStorage.getItem('kochbuch_unlocked') === '1'){
+  showApp();
+}
+
+// ---------- Rezepte laden ----------
+async function loadRecipes(){
+  const status = document.getElementById('status');
+  status.textContent = 'Lade Rezepte aus pCloud ...';
+
+  try {
+    const listResp = await fetch(`https://api.pcloud.com/showpublink?code=${CONFIG.pcloudCode}`);
+    const listData = await listResp.json();
+    if (listData.result !== 0) throw new Error('pCloud-Antwort: ' + (listData.error || listData.result));
+
+    const contents = listData.metadata.contents || [];
+    const textFiles = contents.filter(f => !f.isfolder && /\.(txt|md)$/i.test(f.name));
+    const imageFiles = contents.filter(f => !f.isfolder && /\.(jpe?g|jpg|png|webp|gif)$/i.test(f.name));
+
+    const recipes = [];
+    for (const file of textFiles){
+      try {
+        const dlResp = await fetch(`https://api.pcloud.com/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${file.fileid}`);
+        const dlData = await dlResp.json();
+        if (dlData.result !== 0) continue;
+        const fileUrl = 'https://' + dlData.hosts[0] + dlData.path;
+        const textResp = await fetch(fileUrl);
+        const text = await textResp.text();
+        const recipe = parseRecipe(text, file.name);
+
+        if (recipe.bild){
+          const imgFile = imageFiles.find(f => f.name.toLowerCase() === recipe.bild.toLowerCase());
+          if (imgFile){
+            const imgDlResp = await fetch(`https://api.pcloud.com/getpublinkdownload?code=${CONFIG.pcloudCode}&fileid=${imgFile.fileid}`);
+            const imgDlData = await imgDlResp.json();
+            if (imgDlData.result === 0){
+              recipe.bildUrl = 'https://' + imgDlData.hosts[0] + imgDlData.path;
+            }
+          }
+        }
+        recipes.push(recipe);
+      } catch(innerErr){
+        console.error('Konnte Rezept nicht laden:', file.name, innerErr);
+      }
+    }
+
+    ALL_RECIPES = recipes;
+    if (recipes.length === 0){
+      status.textContent = 'Es wurden keine Rezepte gefunden. Liegt schon eine Rezept-Datei (.txt) im pCloud-Ordner?';
+    } else {
+      status.textContent = '';
+    }
+    buildFilters();
+    renderGrid();
+
+  } catch(err){
+    console.error(err);
+    status.innerHTML = `
+      Die Rezepte konnten nicht automatisch geladen werden.<br>
+      Das kann daran liegen, dass pCloud den direkten Zugriff aus dem Browser blockiert (CORS).
+      Sag mir kurz Bescheid, dann schauen wir uns eine Alternative an.<br>
+      <small>Technische Meldung: ${err.message}</small>`;
+  }
+}
+
+// ---------- Rezept-Text parsen ----------
+function parseRecipe(raw, filename){
+  const lines = raw.split(/\r?\n/);
+  let sepIdx = lines.findIndex(l => l.trim() === '---');
+  if (sepIdx === -1) sepIdx = lines.length;
+  const headerLines = lines.slice(0, sepIdx);
+  const body = lines.slice(sepIdx + 1).join('\n').trim();
+
+  const data = {
+    filename, titel:'', kueche:'', zutaten:'', zeit:'', tags:[], bild:'', body
+  };
+
+  for (const line of headerLines){
+    const idx = line.indexOf(':');
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim().toLowerCase();
+    const value = line.slice(idx + 1).trim();
+    if (key.startsWith('titel')) data.titel = value;
+    else if (key.startsWith('küche') || key.startsWith('kueche')) data.kueche = value;
+    else if (key.startsWith('zutaten')) data.zutaten = value;
+    else if (key.startsWith('zubereitungszeit') || key.startsWith('zeit')) data.zeit = value;
+    else if (key.startsWith('tags')) data.tags = value.split(',').map(t=>t.trim().replace(/^#/,'')).filter(Boolean);
+    else if (key.startsWith('bild')) data.bild = value;
+  }
+  if (!data.titel) data.titel = filename.replace(/\.(txt|md)$/i,'');
+  return data;
+}
+
+// ---------- Filter-Chips bauen ----------
+function buildFilters(){
+  const kuechen = [...new Set(ALL_RECIPES.map(r=>r.kueche).filter(Boolean))].sort();
+  const tags = [...new Set(ALL_RECIPES.flatMap(r=>r.tags))].sort();
+
+  const wrap = document.getElementById('filters');
+  wrap.innerHTML = '';
+
+  kuechen.forEach(k=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip kuechechip';
+    chip.textContent = k;
+    chip.onclick = ()=>{
+      activeKueche = (activeKueche === k) ? null : k;
+      renderGrid();
+      buildFilters();
+    };
+    if (activeKueche === k) chip.classList.add('active');
+    wrap.appendChild(chip);
+  });
+
+  tags.forEach(t=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip tagchip';
+    chip.textContent = '#' + t;
+    chip.onclick = ()=>{
+      activeTag = (activeTag === t) ? null : t;
+      renderGrid();
+      buildFilters();
+    };
+    if (activeTag === t) chip.classList.add('active');
+    wrap.appendChild(chip);
+  });
+}
+
+// ---------- Suche ----------
+document.getElementById('searchInput').addEventListener('input', renderGrid);
+
+function getFiltered(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  return ALL_RECIPES.filter(r=>{
+    if (activeKueche && r.kueche !== activeKueche) return false;
+    if (activeTag && !r.tags.includes(activeTag)) return false;
+    if (q){
+      const haystack = (r.titel + ' ' + r.zutaten + ' ' + r.kueche).toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+// ---------- Grid rendern ----------
+function renderGrid(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  const list = getFiltered();
+
+  list.forEach((r, i)=>{
+    const card = document.createElement('div');
+    card.className = 'rcard';
+    card.onclick = ()=>openDetail(r);
+
+    const thumbHtml = r.bildUrl
+      ? `<img src="${escapeHtml(r.bildUrl)}" alt="">`
+      : '🍽️';
+
+    card.innerHTML = `
+      <div class="punch"></div>
+      <div class="thumb">${r.bildUrl ? '' : '🍽️'}</div>
+      <div class="body">
+        <h3>${escapeHtml(r.titel)}</h3>
+        <div class="meta">${escapeHtml(r.kueche || '')}${r.zeit ? ' · ' + escapeHtml(r.zeit) : ''}</div>
+        <div class="tags">${r.tags.map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div>
+      </div>`;
+
+    if (r.bildUrl){
+      const img = document.createElement('img');
+      img.src = r.bildUrl;
+      const thumbDiv = card.querySelector('.thumb');
+      thumbDiv.innerHTML = '';
+      thumbDiv.appendChild(img);
+    }
+
+    grid.appendChild(card);
+  });
+
+  const status = document.getElementById('status');
+  if (ALL_RECIPES.length > 0){
+    status.textContent = list.length === 0 ? 'Keine Rezepte gefunden.' : '';
+  }
+}
+
+// ---------- Detailansicht ----------
+function openDetail(r){
+  document.getElementById('detailTitel').textContent = r.titel;
+  document.getElementById('detailMeta').textContent = [r.kueche, r.zeit].filter(Boolean).join(' · ');
+  document.getElementById('detailTags').innerHTML = r.tags.map(t=>`<span>#${escapeHtml(t)}</span>`).join('');
+  document.getElementById('detailZutaten').textContent = r.zutaten;
+  document.getElementById('detailZubereitung').textContent = r.body;
+
+  const thumb = document.getElementById('detailThumb');
+  const img = document.getElementById('detailImg');
+  if (r.bildUrl){
+    img.src = r.bildUrl;
+    thumb.style.display = 'block';
+  } else {
+    thumb.style.display = 'none';
+  }
+
+  document.getElementById('detail').style.display = 'block';
+  window.scrollTo(0,0);
+}
+function closeDetail(){
+  document.getElementById('detail').style.display = 'none';
+}
+
+// ---------- Hilfsfunktion ----------
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
