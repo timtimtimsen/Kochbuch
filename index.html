@@ -225,7 +225,7 @@
   <header class="top">
     <div class="row1">
       <h1>🍲 Mein <span>Kochbuch</span></h1>
-      <span style="font-size:0.7rem;color:var(--ink-soft);opacity:0.6;">v1.5</span>
+      <span style="font-size:0.7rem;color:var(--ink-soft);opacity:0.6;">v1.6</span>
     </div>
     <div id="search">
       <input type="text" id="searchInput" placeholder="Suche nach Titel oder Zutat, z.B. Quinoa...">
@@ -330,7 +330,6 @@ async function loadRecipes(){
 
     const contents = listData.metadata.contents || [];
     const textFiles = contents.filter(f => !f.isfolder && /\.(txt|md)$/i.test(f.name));
-    const imageFiles = contents.filter(f => !f.isfolder && /\.(jpe?g|jpg|png|webp|gif)$/i.test(f.name));
 
     const recipes = [];
     const loadErrors = [];
@@ -341,25 +340,12 @@ async function loadRecipes(){
         const text = await textResp.text();
         const recipe = parseRecipe(text, file.name);
 
+        // Bilder liegen jetzt direkt im GitHub-Repo (Ordner "images/"),
+        // daher genügt der relative Pfad - kein pCloud-Zugriff nötig.
         if (recipe.bild){
-          const imgFile = imageFiles.find(f => f.name.toLowerCase() === recipe.bild.toLowerCase());
-          if (imgFile){
-            try {
-              const imgResp = await fetch(proxiedDownload(imgFile.fileid));
-              if (imgResp.ok){
-                const blob = await imgResp.blob();
-                recipe.bildUrl = URL.createObjectURL(blob);
-              } else {
-                const bodyText = await imgResp.text().catch(()=> '');
-                recipe.bildFehler = `Bild-Download HTTP ${imgResp.status}${bodyText ? ' – ' + bodyText.slice(0,200) : ''}`;
-              }
-            } catch(imgErr){
-              recipe.bildFehler = 'Bild-Fehler: ' + imgErr.message;
-            }
-          } else {
-            recipe.bildFehler = `Bilddatei "${recipe.bild}" nicht im Ordner gefunden (vorhanden: ${imageFiles.map(f=>f.name).join(', ') || 'keine Bilder'})`;
-          }
+          recipe.bildUrl = recipe.bild.startsWith('images/') ? recipe.bild : `images/${recipe.bild}`;
         }
+
         recipes.push(recipe);
       } catch(innerErr){
         console.error('Konnte Rezept nicht laden:', file.name, innerErr);
@@ -488,13 +474,13 @@ function renderGrid(){
       <div class="body">
         <h3>${escapeHtml(r.titel)}</h3>
         <div class="meta">${escapeHtml(r.kueche || '')}${r.zeit ? ' · ' + escapeHtml(r.zeit) : ''}</div>
-        ${r.bildFehler ? `<div style="font-size:0.72rem;color:var(--brick);margin-bottom:6px;">⚠ ${escapeHtml(r.bildFehler)}</div>` : ''}
         <div class="tags">${r.tags.map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div>
       </div>`;
 
     if (r.bildUrl){
       const img = document.createElement('img');
       img.src = r.bildUrl;
+      img.onerror = ()=>{ thumbDiv.innerHTML = '🍽️'; };
       const thumbDiv = card.querySelector('.thumb');
       thumbDiv.innerHTML = '';
       thumbDiv.appendChild(img);
@@ -521,6 +507,7 @@ function openDetail(r){
   const img = document.getElementById('detailImg');
   if (r.bildUrl){
     img.src = r.bildUrl;
+    img.onerror = ()=>{ thumb.style.display = 'none'; };
     thumb.style.display = 'block';
   } else {
     thumb.style.display = 'none';
