@@ -238,7 +238,7 @@
   <header class="top">
     <div class="row1">
       <h1>🍲 Mein <span>Kochbuch</span></h1>
-      <span style="font-size:0.7rem;color:var(--ink-soft);opacity:0.6;">v1.8</span>
+      <span style="font-size:0.7rem;color:var(--ink-soft);opacity:0.6;">v1.9</span>
     </div>
     <div id="search">
       <input type="text" id="searchInput" placeholder="Suche nach Titel oder Zutat, z.B. Quinoa...">
@@ -264,7 +264,8 @@
       <h2 id="detailTitel"></h2>
       <div class="meta" id="detailMeta"></div>
       <div id="detailRating" style="color:var(--mustard);font-size:1.1rem;margin-bottom:4px;display:none;"></div>
-      <div id="detailGesund" style="font-size:1.1rem;margin-bottom:10px;display:none;"></div>
+      <div id="detailGesund" style="font-size:1.1rem;margin-bottom:6px;display:none;"></div>
+      <div id="detailKoch" style="color:var(--ink-soft);font-size:0.85rem;margin-bottom:14px;"></div>
       <div class="tags" id="detailTags"></div>
       <h4>Zutaten</h4>
       <div class="zutaten" id="detailZutaten"></div>
@@ -293,7 +294,7 @@ const CONFIG = {
   // WICHTIG: Ändere dieses Passwort, bevor du die Datei hochlädst!
   // Dies ist KEIN echter Schutz (siehe Erklärung im Chat), nur eine
   // einfache Zugangshürde gegen zufällige Besucher.
-  password: 'GibSnacks'
+  password: 'REZEPTE2026'
 };
 /* ========================================================= */
 
@@ -303,12 +304,16 @@ let activeZeit = null;
 let activeTag = null;
 let activeMinRating = 0;
 let activeMinGesund = 0;
+let activeKoch = null;
 
 function starString(n){
   return '★'.repeat(n) + '☆'.repeat(5 - n);
 }
 function gesundString(n){
   return '🥑'.repeat(n);
+}
+function kochLabel(r){
+  return r.koch ? r.koch : 'Koch unbekannt';
 }
 
 // ---------- Proxy-Hilfsfunktion ----------
@@ -411,7 +416,7 @@ function parseRecipe(raw, filename){
   const body = lines.slice(sepIdx + 1).join('\n').trim();
 
   const data = {
-    filename, titel:'', kueche:'', zutaten:'', zeit:'', tags:[], bild:'', bewertung:0, gesund:0, body
+    filename, titel:'', kueche:'', zutaten:'', zeit:'', tags:[], bild:'', bewertung:0, gesund:0, koch:'', body
   };
 
   for (const line of headerLines){
@@ -433,6 +438,7 @@ function parseRecipe(raw, filename){
       const n = parseInt(value, 10);
       data.gesund = (n >= 1 && n <= 5) ? n : 0;
     }
+    else if (key.startsWith('koch')) data.koch = value.trim();
   }
   if (!data.titel) data.titel = filename.replace(/\.(txt|md)$/i,'');
   return data;
@@ -447,6 +453,7 @@ function buildFilters(){
     return a.localeCompare(b);
   });
   const tags = [...new Set(ALL_RECIPES.flatMap(r=>r.tags))].sort();
+  const koeche = [...new Set(ALL_RECIPES.map(r=>kochLabel(r)))].sort();
 
   const dwrap = document.getElementById('dropdownFilters');
   dwrap.innerHTML = '';
@@ -455,6 +462,7 @@ function buildFilters(){
   dwrap.appendChild(makeSelect('Alle Zeiten', zeiten, activeZeit, v=>{ activeZeit = v || null; renderGrid(); }));
   dwrap.appendChild(makeRatingSelect('Alle Bewertungen', '★', activeMinRating, v=>{ activeMinRating = v; renderGrid(); }));
   dwrap.appendChild(makeRatingSelect('Alle Gesundheitswerte', '🥑', activeMinGesund, v=>{ activeMinGesund = v; renderGrid(); }));
+  dwrap.appendChild(makeSelect('Alle Köche', koeche, activeKoch, v=>{ activeKoch = v || null; renderGrid(); }));
 
   const twrap = document.getElementById('tagFilters');
   twrap.innerHTML = '';
@@ -519,6 +527,7 @@ function getFiltered(){
     if (activeTag && !r.tags.includes(activeTag)) return false;
     if (activeMinRating && r.bewertung < activeMinRating) return false;
     if (activeMinGesund && r.gesund < activeMinGesund) return false;
+    if (activeKoch && kochLabel(r) !== activeKoch) return false;
     if (q){
       const haystack = (r.titel + ' ' + r.zutaten + ' ' + r.kueche).toLowerCase();
       if (!haystack.includes(q)) return false;
@@ -589,6 +598,7 @@ function openDetail(r){
   } else {
     gesundEl.style.display = 'none';
   }
+  document.getElementById('detailKoch').textContent = 'Von: ' + kochLabel(r);
   document.getElementById('detailTags').innerHTML = r.tags.map(t=>`<span>#${escapeHtml(t)}</span>`).join('');
   document.getElementById('detailZutaten').textContent = r.zutaten
     .split(',')
